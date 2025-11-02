@@ -2,7 +2,7 @@
 
 import os
 import stat
-import json 
+import json
 import subprocess
 import re
 
@@ -13,20 +13,20 @@ def tmps_error(a_text):
     """
     Prints error messages in standard format, and exit(1)
     """
-    print "Error in tmps : {0} ; exit 1".format(a_text)
+    print("Error in tmps : {} ; exit 1".format(a_text))
     exit(1)
-    
+
 class Tmps:
     """"Main classe. Manage Tmps objects for environment self.env.
     Tmps correspond to files in directory /tmp/tmps/<env>/.
     Manage means: list (get), create (post), update (put), delete (delete)
-    
+
     Attributes:
         env   environment
         pk    primary key (correspond to the argument -k <pk>)
         name  name defined in json input file (pk and name must match)
     """
-    
+
     def json_read(self, a_json):
         """Read json input and perform some checks.
         - mode must be 0[2,6,7][1-7]{2} (0644, 0755, 0632...)
@@ -41,17 +41,17 @@ class Tmps:
         self.mode = parsed_json['mode']
         if (not re.match(r"^0[2,6,7][1-7]{2}$",self.mode)):
             tmps_error("json_read: mode is not 00[2,6,7][1-7]{2} :" + self.mode)
-        
+
     def get_all(self):
         """List all tmps files from env."""
         my_list = ListOfTmpsFile(self.env)
-        print my_list.json()
-    
+        print(my_list.json())
+
     def get(self, pk):
         """List pk file from env."""
         tmps_file = TmpsFile(self.env, pk)
         tmps_file.get()
-        print tmps_file.json()
+        print(tmps_file.json())
 
     def post(self, json):
         """Create tmps file, in environment env, from json."""
@@ -60,7 +60,7 @@ class Tmps:
         if (not tmps_file.check()):
             tmps_file.mode = self.mode
             tmps_file.save()
-            print tmps_file.json()
+            print(tmps_file.json())
         else:
             tmps_error("post: file stil exists " + self.name)
 
@@ -73,10 +73,10 @@ class Tmps:
         if (tmps_file.check()):
             tmps_file.mode = self.mode
             tmps_file.save()
-            print tmps_file.json()
+            print(tmps_file.json())
         else:
             tmps_error("put: file does not exist " + pk)
-    
+
     def delete(self, pk):
         """Delete a specific file, identified by pk."""
         tmps_file = TmpsFile(self.env, pk)
@@ -89,19 +89,17 @@ class Tmps:
             tmps_error("delete: file does not exist " + pk)
 
     def __init__(self, env):
-        """Tmps class constructor (need an env). 
+        """Tmps class constructor (need an env).
         Create dir /tmp/tmps/<env> for all env if they don't exist.
         """
         self.env = env
-        for my_env in ["dev","val","inf","fr"]:
-            my_path = os.path.join(RACINE,my_env)
-            if not os.path.exists(my_path):
-                os.makedirs(my_path)
-
+        my_path = os.path.join(RACINE, self.env)
+        if not os.path.exists(my_path):
+            os.makedirs(my_path)
 
 class ListOfTmpsFile:
     """ListOfTmpsFile: list of TmpsFile in directory <env>"""
-     
+
     def json(self):
         """Return list of TmpsFile in json format"""
         return json.dumps(self.list_of_files, sort_keys=True, indent=4, separators=(',', ': '))
@@ -110,7 +108,7 @@ class ListOfTmpsFile:
         """ListOfTmpsFile class constructor. List files from directory <env>.
         List is a list of json descriptors."""
         self.list_of_files = list()
-        racine = os.path.join(RACINE,env) 
+        racine = os.path.join(RACINE,env)
         if (os.path.isdir(racine)):
             for file_name in os.listdir(racine):
                 if os.path.isfile(os.path.join(racine,file_name)):
@@ -118,17 +116,16 @@ class ListOfTmpsFile:
                     mode = oct(stat.S_IMODE(os.stat(long_file_name)[stat.ST_MODE])) #mode of the file
                     self.list_of_files.append({'env':env, 'name': file_name, 'mode': mode})
         else:
-            tmps_error(self.__racine + ": no such dir.")
+            tmps_error(racine + ": no such dir.")
 
 class TmpsFile:
     """TmpsFile: file TmpsFile, identified by env and pk
-        
+
     Attributes:
         env   environment
         pk    primary key (correspond to the argument -k <pk>)
     """
 
-   
     def json(self):
         """Return TmpsFile in json format."""
         j = ({'env':self.__env, 'name': self.__name, 'mode': self.mode})
@@ -137,10 +134,14 @@ class TmpsFile:
     def save(self):
         """Create or update file."""
         try:
+            my_path = os.path.dirname(self.__long_name)
+            if not os.path.exists(my_path):
+                os.makedirs(my_path)
             open(self.__long_name, 'a').close() #create an empty file
-            myPopen = subprocess.Popen(['chmod', self.mode, self.__long_name])
-        except:
-            tmps_error("Creation of file " + self.__name)
+            # Make sure the mode is set correctly
+            os.chmod(self.__long_name, int(self.mode, 8))
+        except Exception as e:
+            tmps_error("Creation of file " + self.__name + ": " + str(e))
 
     def check(self):
         """Check if file exists and return True or False."""
@@ -161,8 +162,8 @@ class TmpsFile:
         if os.path.isfile(self.__long_name):
             try:
                 os.remove(self.__long_name)
-            except:
-                tmps_error("Delete: file " + self.__long_name)
+            except Exception as e:
+                tmps_error("Delete: file " + self.__long_name + ": " + str(e))
         else:
             tmps_error("Delete: non existing file " + self.__long_name)
 
@@ -175,4 +176,3 @@ class TmpsFile:
         #print "DEBUG: name={0}".format(name)
         self.__long_name = os.path.join(racine,self.__name)
         self.mode = "0644"
-        
